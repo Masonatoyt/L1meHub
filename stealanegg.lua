@@ -1,30 +1,16 @@
-local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
-local ProximityPromptService = game:GetService("ProximityPromptService")
-local TweenService = game:GetService("TweenService")
+-- Защита и сервисы
 local Players = game:GetService("Players")
-
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
-local currentTween = nil
 
--- Загрузка Fluent UI с GitHub
+-- Загружаем Fluent UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
-pcall(function()
-    StarterGui:SetCore("SendNotification", {
-        Title = "TP Walk Hub",
-        Text = "Скрипт успешно запущен через L1me Loader!",
-        Duration = 5,
-    })
-end)
-
-ProximityPromptService.PromptShown:Connect(function(prompt)
-    prompt.HoldDuration = 0
-end)
-
--- Создание окна
+-- Создаем окно скрипта для Steal An Egg
 local Window = Fluent:CreateWindow({
-    Title = "TP Walk & Utilities Hub",
+    Title = "L1me Hub | Steal An Egg",
     SubTitle = "by L1me Hub",
     TabWidth = 160,
     Size = UDim2.fromOffset(500, 380),
@@ -33,176 +19,155 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
--- Создание вкладок
+-- Вкладки
 local Tabs = {
-    Main = Window:AddTab({ Title = "Главная", Icon = "home" }),
+    Main = Window:AddTab({ Title = "Фарм", Icon = "egg" }),
+    Movement = Window:AddTab({ Title = "Движение", Icon = "move" }),
     Settings = Window:AddTab({ Title = "Настройки", Icon = "settings" })
 }
 
-local Options = Fluent.Options
-
--- Переменные функций
-local tpSpeed = 50
+-- ==========================================
+-- 1. ЛОГИКА TP WALK (С фиксом выключения)
+-- ==========================================
 local tpWalkEnabled = false
+local tpSpeed = 25
+local tpWalkConnection = nil
 
--- Функция сброса с отвязкой от тренажеров и принудительным падением
-local function forceFallAndReset(character)
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    
-    if humanoid then
-        humanoid.Sit = false
-        humanoid.PlatformStand = true
-    end
-
-    if rootPart then
-        rootPart.Anchored = false
-        for _, part in pairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-        
-        local connection
-        local elapsed = 0
-        connection = RunService.RenderStepped:Connect(function(dt)
-            elapsed = elapsed + dt
-            if rootPart and rootPart.Parent then
-                rootPart.CFrame = rootPart.CFrame - Vector3.new(0, dt * 40, 0)
-            end
-            if elapsed > 0.4 then
-                connection:Disconnect()
-            end
-        end)
-    end
-    
-    task.delay(0.45, function()
-        if character and character.Parent then
-            character:BreakJoints()
-        end
-    end)
-end
-
--- Вкладка Main (Главная)
-Tabs.Main:AddToggle("BypassToggle", {
-    Title = "Bypass Anti-cheat",
-    Description = "Включить или выключить обход",
-    Default = false,
-    Callback = function(Value)
-        local character = LocalPlayer.Character
-        if not character then return end
-
-        if Value then
-            Fluent:Notify({ Title = "Bypass", Content = "Anti-cheat включен (Humanoid заменен)", Duration = 3 })
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid:Destroy()
-            end
-            local replacementHumanoid = Instance.new("Humanoid")
-            replacementHumanoid.Parent = character
-        else
-            Fluent:Notify({ Title = "Bypass", Content = "Anti-cheat выключен. Сходим с тренажера и падаем...", Duration = 3 })
-            forceFallAndReset(character)
-        end
-    end
-})
-
-Tabs.Main:AddButton({
-    Title = "Move to Stand",
-    Description = "Телепортация/Твин к точке назначения",
-    Callback = function()
-        local character = LocalPlayer.Character
-        if not character then return end
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return end
-
-        if currentTween then currentTween:Cancel() end
-
-        local targetCFrame = CFrame.new(544.577637, 92.0762939, -364.869049, -1, 0, 0, 0, 1, 0, 0, 0, -1)
-        local tweenInfo = TweenInfo.new(7, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 0, false, 0)
-        
-        currentTween = TweenService:Create(rootPart, tweenInfo, {CFrame = targetCFrame})
-        
-        Window:Dialog({
-            Title = "Движение",
-            Content = "Запущено движение к цели.",
-            Buttons = {
-                {
-                    Title = "Остановить (STOP)",
-                    Callback = function()
-                        if currentTween then
-                            currentTween:Cancel()
-                            currentTween = nil
-                        end
-                    end
-                },
-                {
-                    Title = "Закрыть",
-                    Callback = function() end
-                }
-            }
-        })
-
-        currentTween.Completed:Connect(function()
-            currentTween = nil
-        end)
-
-        currentTween:Play()
-    end
-})
-
-Tabs.Main:AddButton({
-    Title = "Respawn Character",
-    Description = "Сбросить персонажа с падением",
-    Callback = function()
-        local character = LocalPlayer.Character
-        if character then
-            forceFallAndReset(character)
-        end
-    end
-})
-
--- Вкладка Settings (Настройки)
-Tabs.Settings:AddToggle("TPWalkToggle", {
+Tabs.Movement:AddToggle("TPWalkToggle", {
     Title = "TP Walk",
-    Description = "Включить телепортацию при ходьбе",
+    Description = "Телепортация при ходьбе (ускорение)",
     Default = false,
     Callback = function(Value)
         tpWalkEnabled = Value
+        
+        if tpWalkEnabled then
+            if not tpWalkConnection then
+                tpWalkConnection = RunService.Heartbeat:Connect(function(deltaTime)
+                    if not tpWalkEnabled then return end
+                    local character = LocalPlayer.Character
+                    if not character then return end
+
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    local rootPart = character:FindFirstChild("HumanoidRootPart")
+
+                    if humanoid and rootPart and humanoid.MoveDirection.Magnitude > 0 then
+                        rootPart.CFrame = rootPart.CFrame + humanoid.MoveDirection * tpSpeed * deltaTime
+                    end
+                end)
+            end
+        else
+            if tpWalkConnection then
+                tpWalkConnection:Disconnect()
+                tpWalkConnection = nil
+            end
+        end
     end
 })
 
-Tabs.Settings:AddSlider("TPSpeedSlider", {
-    Title = "TP Speed",
-    Description = "Скорость перемещения через TP Walk",
-    Default = 50,
-    Min = 1,
-    Max = 300,
-    Rounding = 0,
+Tabs.Movement:AddSlider("TPSpeedSlider", {
+    Title = "Скорость TP Walk",
+    Description = "Регулировка скорости движения",
+    Default = 25,
+    Min = 10,
+    Max = 100,
+    Rounding = 1,
     Callback = function(Value)
         tpSpeed = Value
     end
 })
 
--- Логика TP Walk (Heartbeat)
-RunService.Heartbeat:Connect(function(deltaTime)
-    if not tpWalkEnabled then return end
+-- ==========================================
+-- 2. ЛОГИКА УМНОГО АВТОФАРМА (Биомы -> База)
+-- ==========================================
+local smartFarmEnabled = false
+local isWorking = false
+
+-- ВНИМАНИЕ: Замени на реальные координаты твоей базы в игре!
+local basePosition = CFrame.new(0, 5, 0) 
+
+local function moveTo(targetCFrame)
     local character = LocalPlayer.Character
     if not character then return end
-
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
     local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
 
-    if humanoid and rootPart and humanoid.MoveDirection.Magnitude > 0 then
-        rootPart.CFrame = rootPart.CFrame + humanoid.MoveDirection * tpSpeed * deltaTime
+    local distance = (rootPart.Position - targetCFrame.Position).Magnitude
+    local speed = 60 -- Скорость полета к яйцу
+    local duration = distance / speed
+
+    local tween = TweenService:Create(rootPart, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame + Vector3.new(0, 3, 0)})
+    tween:Play()
+    tween.Completed:Wait()
+end
+
+local function grabEgg(eggPart)
+    local character = LocalPlayer.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if not rootPart or not eggPart then return end
+
+    moveTo(eggPart.CFrame)
+    
+    pcall(function()
+        firetouchinterest(rootPart, eggPart, 0)
+        task.wait(0.1)
+        firetouchinterest(rootPart, eggPart, 1)
+    end)
+    task.wait(0.5)
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if smartFarmEnabled and not isWorking then
+            isWorking = true
+            pcall(function()
+                -- Путь к папке карты/биомов (проверь через Explorer в игре)
+                local mapFolder = Workspace:FindFirstChild("Map") or Workspace
+                
+                for _, biome in ipairs(mapFolder:GetChildren()) do
+                    if not smartFarmEnabled then break end
+                    
+                    local eggsFolder = biome:FindFirstChild("Eggs") or biome:FindFirstChild("SpawnedEggs")
+                    
+                    if eggsFolder then
+                        for _, egg in ipairs(eggsFolder:GetChildren()) do
+                            if not smartFarmEnabled then break end
+                            
+                            local eggPart = egg:IsA("Model") and egg.PrimaryPart or egg:IsA("BasePart") and egg
+                            if eggPart then
+                                -- Летим к яйцу и берем его
+                                grabEgg(eggPart)
+                                -- Возвращаемся на базу
+                                moveTo(basePosition)
+                                task.wait(1)
+                            end
+                        end
+                    end
+                end
+            end)
+            isWorking = false
+        end
     end
 end)
 
--- Выбор вкладки по умолчанию
+Tabs.Main:AddToggle("SmartFarmToggle", {
+    Title = "Умный фарм (Биомы -> База)",
+    Description = "Сканирует биомы, собирает яйца и везет на базу",
+    Default = false,
+    Callback = function(Value)
+        smartFarmEnabled = Value
+    end
+})
+
+-- Вкладка информации
+Tabs.Settings:AddParagraph({
+    Title = "Информация",
+    Content = "Скрипт оптимизирован для Steal An Egg. Используй тугглы для управления."
+})
+
 Window:SelectTab(1)
 
 Fluent:Notify({
     Title = "L1me Hub",
-    Content = "Интерфейс TP Walk успешно развернут!",
-    Duration = 6
+    Content = "Скрипт Steal An Egg успешно загружен!",
+    Duration = 4
 })
