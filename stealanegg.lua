@@ -1,11 +1,9 @@
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local ProximityPromptService = game:GetService("ProximityPromptService")
-local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 
 local LocalPlayer = Players.LocalPlayer
-local currentTween = nil
 
 -- Загрузка Fluent UI с GitHub
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
@@ -42,7 +40,7 @@ local Tabs = {
 local Options = Fluent.Options
 
 -- Переменные функций
-local tpSpeed = 50 -- Старт с комфортного значения, а до 1000 докрутишь ползунком
+local tpSpeed = 50
 local tpWalkEnabled = false
 
 -- Функция сброса с отвязкой от тренажеров и принудительным падением
@@ -108,50 +106,6 @@ Tabs.Main:AddToggle("BypassToggle", {
 })
 
 Tabs.Main:AddButton({
-    Title = "Move to Stand",
-    Description = "Телепортация/Твин к точке назначения",
-    Callback = function()
-        local character = LocalPlayer.Character
-        if not character then return end
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then return end
-
-        if currentTween then currentTween:Cancel() end
-
-        local targetCFrame = CFrame.new(544.577637, 92.0762939, -364.869049, -1, 0, 0, 0, 1, 0, 0, 0, -1)
-        local tweenInfo = TweenInfo.new(7, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 0, false, 0)
-        
-        currentTween = TweenService:Create(rootPart, tweenInfo, {CFrame = targetCFrame})
-        
-        Window:Dialog({
-            Title = "Движение",
-            Content = "Запущено движение к цели.",
-            Buttons = {
-                {
-                    Title = "Остановить (STOP)",
-                    Callback = function()
-                        if currentTween then
-                            currentTween:Cancel()
-                            currentTween = nil
-                        end
-                    end
-                },
-                {
-                    Title = "Закрыть",
-                    Callback = function() end
-                }
-            }
-        })
-
-        currentTween.Completed:Connect(function()
-            currentTween = nil
-        end)
-
-        currentTween:Play()
-    end
-})
-
-Tabs.Main:AddButton({
     Title = "Respawn Character",
     Description = "Сбросить персонажа с падением",
     Callback = function()
@@ -177,7 +131,7 @@ Tabs.Settings:AddSlider("TPSpeedSlider", {
     Description = "Скорость перемещения через TP Walk",
     Default = 50,
     Min = 1,
-    Max = 1000, -- Диапазон от 1 до 1000
+    Max = 1000,
     Rounding = 0,
     Callback = function(Value)
         tpSpeed = Value
@@ -203,6 +157,6 @@ Window:SelectTab(1)
 
 Fluent:Notify({
     Title = "L1me Hub",
-    Content = "Интерфейс TP Walk успешно развернут!",
+    Content = "Скрипт успешно очищен от Move to Stand!",
     Duration = 6
 })
