@@ -13,7 +13,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 pcall(function()
     StarterGui:SetCore("SendNotification", {
         Title = "TP Walk Hub",
-        Text = "Скрипт успешно запущен через L1me Loader.",
+        Text = "Скрипт успешно запущен через L1me Loader!",
         Duration = 5,
     })
 end)
