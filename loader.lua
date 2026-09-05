@@ -8,7 +8,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 pcall(function()
     StarterGui:SetCore("SendNotification", {
         Title = "L1me Loader",
-        Text = "Инициализация...",
+        Text = "Инициализация системы...",
         Duration = 3,
     })
 end)
@@ -36,16 +36,8 @@ local ProgressBar = LoadTab:AddParagraph({
     Content = "Статус: Подготовка [0%]"
 })
 
--- Анимация прогресса
-task.spawn(function()
-    for i = 1, 100 do
-        task.wait(0.01)
-        ProgressBar:SetDesc("Статус: Загрузка [" .. i .. "%]")
-    end
-    
-    task.wait(0.3)
-    LoadWindow:Destroy() -- Закрываем окно загрузки
-
+-- Функция открытия главного меню выбора игр
+local function OpenMainMenu()
     -- 2. Главное меню выбора скриптов
     local MainMenu = Fluent:CreateWindow({
         Title = "L1me Hub | Выберите скрипт",
@@ -64,10 +56,10 @@ task.spawn(function()
 
     Tabs.Games:AddParagraph({
         Title = "Доступные игры",
-        Content = "При нажатии на кнопку старый интерфейс закроется, и загрузится выбранный скрипт."
+        Content = "При нажатии на кнопку интерфейс закроется, и загрузится скрипт."
     })
 
-    -- Кнопка для первой игры (Steal An Egg)
+    -- Кнопка для Steal An Egg
     Tabs.Games:AddButton({
         Title = "Steal An Egg",
         Description = "Загрузить скрипт для Steal An Egg",
@@ -75,12 +67,14 @@ task.spawn(function()
             MainMenu:Destroy()
             Fluent:Notify({ Title = "L1me Hub", Content = "Загрузка Steal An Egg...", Duration = 3 })
             
-            -- Сюда вставляется твоя ссылка (Raw GitHub Gist)
+            -- Вызов твоего скрипта с GitHub через loadstring
             local success, err = pcall(function()
                 loadstring(game:HttpGet("https://raw.githubusercontent.com/Masonatoyt/L1meHub/main/stealanegg.lua"))()
             end)
+            
             if not success then
-                warn("Ошибка загрузки скрипта: " .. tostring(err))
+                Fluent:Notify({ Title = "Ошибка!", Content = tostring(err), Duration = 8 })
+                warn("Ошибка загрузки: " .. tostring(err))
             end
         end
     })
@@ -98,4 +92,16 @@ task.spawn(function()
         Content = "Готово к работе!",
         Duration = 4,
     })
+end
+
+-- Анимация прогресса и автоматический переход к меню
+task.spawn(function()
+    for i = 1, 100 do
+        task.wait(0.01)
+        ProgressBar:SetDesc("Статус: Загрузка [" .. i .. "%]")
+    end
+    
+    task.wait(0.2)
+    LoadWindow:Destroy() -- Уничтожаем окно загрузки
+    OpenMainMenu()        -- Открываем меню выбора
 end)
